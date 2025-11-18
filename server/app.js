@@ -47,11 +47,12 @@ io.on('connection', (socket) => {
 
     gameSessions.set(sessionId, gameSession);
 
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    const prompt = `You are a Dungeon Master for a ${setting} RPG game. 
-    The player's name is ${playerName}. 
-    Create an engaging opening scene for the adventure. 
-    Keep it brief (3-4 sentences) and end with a question or choice for the player.`;
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const prompt = `Anda adalah Dungeon Master untuk game RPG berlatar ${setting}. 
+    Nama pemainnya adalah ${playerName}. 
+    **Semua respons Anda harus dalam Bahasa Indonesia yang formal dan menarik.**
+    Buat adegan pembuka petualangan yang menarik. 
+    Jaga agar tetap singkat (3-4 kalimat) dan akhiri dengan pertanyaan atau pilihan untuk pemain.`;
 
     try {
       const result = await model.generateContent(prompt);
@@ -90,12 +91,14 @@ io.on('connection', (socket) => {
       timestamp: Date.now()
     });
 
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const conversationHistory = gameSession.history
       .map(h => `${h.role === 'player' ? 'Player' : 'DM'}: ${h.content}`)
       .join('\n');
 
-    const prompt = `You are a Dungeon Master for a ${gameSession.setting} RPG game.
+    const prompt = `Anda adalah Dungeon Master untuk game RPG berlatar ${gameSession.setting}.
+    
+    **TUGAS PENTING: Semua respons Anda, termasuk narasi dan pertanyaan, harus dalam Bahasa Indonesia yang kreatif dan mengalir.**
     
 Current game state:
 - Player: ${gameSession.playerName}
@@ -110,7 +113,7 @@ Player action: ${action}
 
 Respond as the Dungeon Master. Be creative, engaging, and continue the story. 
 Keep responses brief (3-5 sentences). 
-If the action affects health, inventory, or location, mention it clearly.
+If the action affects health, inventory, or location, mention it clearly in Indonesian.
 End with a question or present new choices.`;
 
     try {
