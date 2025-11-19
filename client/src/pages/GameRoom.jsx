@@ -27,6 +27,7 @@ const GameRoom = () => {
     leaveRoom,
   } = useGame();
   const [selectedSetting, setSelectedSetting] = useState("fantasy");
+  const [isStartingGame, setIsStartingGame] = useState(false);
   const messagesEndRef = useRef(null);
   const navigate = useNavigate();
 
@@ -37,8 +38,15 @@ const GameRoom = () => {
   }, [currentRoom, navigate]);
 
   const handleStartGame = () => {
+    setIsStartingGame(true);
     startGame(playerName, selectedSetting);
   };
+
+  useEffect(() => {
+    if (gameStarted && isStartingGame) {
+      setIsStartingGame(false);
+    }
+  }, [gameStarted, isStartingGame]);
 
   const handleLeaveRoom = () => {
     leaveRoom();
@@ -93,6 +101,7 @@ const GameRoom = () => {
                       <select
                         value={selectedSetting}
                         onChange={(e) => setSelectedSetting(e.target.value)}
+                        disabled={isStartingGame}
                       >
                         <option value="fantasy">Fantasy - Medieval Realms</option>
                         <option value="sci-fi">Sci-Fi - Space Odyssey</option>
@@ -104,11 +113,23 @@ const GameRoom = () => {
                   <button
                     className="start-game-btn"
                     onClick={handleStartGame}
-                    disabled={players.length < 1}
+                    disabled={players.length < 1 || isStartingGame}
                   >
                     <img src={itemIcon} alt="dice" style={{ width: '20px', height: '20px', verticalAlign: 'middle', marginRight: '6px' }} />
                     Begin Adventure
                   </button>
+                  
+                  {isStartingGame && (
+                    <div className="dungeon-loading">
+                      <div className="dungeon-loading-spinner">
+                        <div className="spinner-ring"></div>
+                        <div className="spinner-ring"></div>
+                        <div className="spinner-ring"></div>
+                        <span className="spinner-icon">🏰</span>
+                      </div>
+                      <p className="dungeon-loading-text">The Dungeon is preparing for you...</p>
+                    </div>
+                  )}
                 </div>
               )}
 

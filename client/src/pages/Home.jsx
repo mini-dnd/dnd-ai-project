@@ -13,6 +13,7 @@ const Home = () => {
     const navigate = useNavigate();
     const { playerName, setPlayerName } = useGame();
     const [nameInput, setNameInput] = useState(playerName);
+    const [showNotification, setShowNotification] = useState(false);
 
     useEffect(() => {
         setNameInput(playerName);
@@ -21,6 +22,8 @@ const Home = () => {
     const handleNavigateToLobby = () => {
         const trimmedName = nameInput.trim();
         if (!trimmedName) {
+            setShowNotification(true);
+            setTimeout(() => setShowNotification(false), 5000);
             return;
         }
 
@@ -33,8 +36,28 @@ const Home = () => {
         handleNavigateToLobby();
     };
 
+    const handleButtonClick = () => {
+        if (!nameInput.trim()) {
+            setShowNotification(true);
+            setTimeout(() => setShowNotification(false), 3500);
+            return;
+        }
+        handleNavigateToLobby();
+    };
+
     return (
         <div className="home-page" style={{ backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+            {showNotification && (
+                <div className="fantasy-notification">
+                    <div className="notification-content">
+                        <span className="notification-icon">⚔️</span>
+                        <div className="notification-text">
+                            <strong>Hark, Adventurer!</strong>
+                            <p>Thou must reveal thy name before embarking on this quest!</p>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="home-container">
                 <div className="home-header">
                     <img src={logo} alt="AI Dungeon Master" className="home-logo" />
@@ -57,7 +80,7 @@ const Home = () => {
                 </form>
 
                 <div className="mode-selection">
-                    <button className="mode-btn multiplayer" type="button" onClick={handleNavigateToLobby} disabled={!nameInput.trim()}>
+                    <button className="mode-btn multiplayer" type="button" onClick={handleButtonClick}>
                         <img src={multiplayerLogo} alt="Multiplayer" className="mode-icon-img" />
                         <h3>Multiplayer Mode</h3>
                         <p>{nameInput.trim() ? 'Press to start the game' : 'Enter your name first'}</p>
