@@ -165,7 +165,7 @@ io.on('connection', (socket) => {
     room.gameSession.isStarted = true;
 
     const playerNames = Array.from(room.players.values()).map(p => p.name).join(', ');
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
     const prompt = `Anda adalah Dungeon Master untuk game RPG berlatar ${setting}. 
     Para pemain adalah: ${playerNames}. 
     **Semua respons Anda harus dalam Bahasa Indonesia yang formal dan menarik.**
@@ -217,7 +217,7 @@ io.on('connection', (socket) => {
       timestamp: Date.now()
     });
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
     const playerNames = Array.from(room.players.values()).map(p => p.name).join(', ');
     const conversationHistory = room.gameSession.history
       .map(h => {
