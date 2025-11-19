@@ -1,0 +1,131 @@
+.home-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.home-container {
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 3rem;
+  max-width: 800px;
+  width: 100%;
+  animation: fadeIn 0.6s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.home-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.home-title {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.home-subtitle {
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.mode-selection {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+  justify-content: center;
+}
+
+.mode-btn {
+  flex: 1;
+  max-width: 400px;
+  padding: 2rem;
+  border: 3px solid transparent;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.mode-btn:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+}
+
+.mode-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.mode-btn h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.mode-btn p {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.home-features {
+  display: flex;
+  justify-content: space-around;
+  padding-top: 2rem;
+  border-top: 2px solid #f0f0f0;
+}
+
+.feature {
+  text-align: center;
+  flex: 1;
+}
+
+.feature span {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.feature p {
+  font-size: 0.95rem;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .home-container {
+    padding: 2rem;
+  }
+
+  .home-title {
+    font-size: 2rem;
+  }
+
+  .mode-selection {
+    flex-direction: column;
+  }
+
+  .home-features {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+}
