@@ -1,6 +1,7 @@
-import { createContext, useState } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState, useEffect } from 'react';
 
-const ThemeContext = createContext({
+export const ThemeContext = createContext({
     currentTheme: '',
     setCurrentTheme: () => {},
     theme: {
@@ -13,23 +14,33 @@ const ThemeContext = createContext({
     },
 });
 
+export const useTheme = () => useContext(ThemeContext);
+
 export default function ThemeProvider({ children }) {
-    const [currentTheme, setCurrentTheme] = useState("light")
+    const [currentTheme, setCurrentTheme] = useState('light');
+
+    useEffect(() => {
+        if (typeof document !== 'undefined') {
+            document.documentElement.dataset.theme = currentTheme;
+            document.body.dataset.theme = currentTheme;
+        }
+    }, [currentTheme]);
 
     return (
-        <ThemeContext.Provider value={{
-            currentTheme,
-            setCurrentTheme,
-            theme: {
-                light: {
-                    homeContainer: "bg-white p-5"
+        <ThemeContext.Provider
+            value={{
+                currentTheme,
+                setCurrentTheme,
+                theme: {
+                    light: {
+                        homeContainer: 'bg-white p-5',
+                    },
+                    dark: {
+                        homeContainer: 'bg-gray-700 p-5',
+                    },
                 },
-                dark: {
-                    homeContainer: "bg-gray-700 p-5"
-                }
-            }
-        }}>
+            }}>
             {children}
         </ThemeContext.Provider>
-    )
+    );
 }

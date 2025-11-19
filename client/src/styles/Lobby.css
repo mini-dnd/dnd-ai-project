@@ -381,3 +381,102 @@
         flex-direction: column;
     }
 }
+
+/* Light Theme */
+[data-theme='light'] .lobby-page {
+    background-color: #e2e8f0;
+}
+
+[data-theme='light'] .lobby-page::before {
+    background: linear-gradient(rgba(255, 255, 255, 0.7), rgba(248, 250, 252, 0.7));
+}
+
+[data-theme='light'] .lobby-container {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.15);
+    color: #0f172a !important;
+}
+
+[data-theme='light'] .lobby-header h1,
+[data-theme='light'] .rooms-section h2,
+[data-theme='light'] .create-room-form h2 {
+    color: #0f172a;
+}
+
+[data-theme='light'] .player-summary,
+[data-theme='light'] .player-summary.form-summary,
+[data-theme='light'] .rooms-section,
+[data-theme='light'] .room-card,
+[data-theme='light'] .create-room-form {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+}
+
+[data-theme='light'] .player-summary button,
+[data-theme='light'] .cancel-btn,
+[data-theme='light'] .refresh-btn {
+    background: rgba(226, 232, 240, 0.9);
+    color: #0f172a;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+[data-theme='light'] .create-room-btn,
+[data-theme='light'] .join-btn,
+[data-theme='light'] .submit-btn {
+    background: linear-gradient(to bottom, #e0e7ff, #c7d2fe);
+    color: #1e1b4b;
+    border: 1px solid rgba(79, 70, 229, 0.2);
+    text-shadow: none;
+}
+
+[data-theme='light'] .create-room-btn:hover:not(:disabled),
+[data-theme='light'] .join-btn:hover:not(:disabled),
+[data-theme='light'] .submit-btn:hover:not(:disabled) {
+    background: linear-gradient(to bottom, #c7d2fe, #a5b4fc);
+}
+
+[data-theme='light'] .back-btn {
+    background: linear-gradient(to bottom, #e0e7ff, #c7d2fe);
+    color: #1e1b4b;
+    border: 1px solid rgba(79, 70, 229, 0.2);
+    text-shadow: none;
+}
+
+[data-theme='light'] .back-btn:hover {
+    background: linear-gradient(to bottom, #c7d2fe, #a5b4fc);
+}
+
+[data-theme='light'] .room-header h3 {
+    color: #0f172a;
+}
+
+[data-theme='light'] .room-info {
+    color: #475569;
+}
+
+[data-theme='light'] .summary-label {
+    color: #64748b;
+}
+
+[data-theme='light'] .summary-name {
+    color: #0f172a;
+}
+
+[data-theme='light'] .create-room-form label {
+    color: #0f172a;
+}
+
+[data-theme='light'] .create-room-form input,
+[data-theme='light'] .create-room-form select {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(15, 23, 42, 0.15);
+    color: #0f172a;
+}
+
+[data-theme='light'] .create-room-form input:focus,
+[data-theme='light'] .create-room-form select:focus {
+    border-color: rgba(37, 99, 235, 0.4);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
