@@ -93,33 +93,21 @@
 }
 
 /* Theme Toggle */
-.theme-toggle-group {
-    display: inline-flex;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+.theme-toggle-btn {
+    padding: 6px 14px;
     border-radius: 999px;
-    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(30, 45, 60, 0.5);
+    color: #e2e8f0;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
     backdrop-filter: blur(6px);
 }
 
-.theme-btn {
-    background: transparent;
-    color: #e2e8f0;
-    border: none;
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    letter-spacing: 0.02em;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
-}
-
-.theme-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-}
-
-.theme-btn.active {
-    background: rgba(255, 255, 255, 0.18);
-    color: #0f172a;
-    font-weight: 600;
+.theme-toggle-btn:hover {
+    background: rgba(30, 45, 60, 0.75);
+    transform: translateY(-1px);
 }
 
 /* Light Theme Overrides */
@@ -134,17 +122,14 @@
     color: #0f172a;
 }
 
-[data-theme='light'] .theme-toggle-group {
+[data-theme='light'] .theme-toggle-btn {
+    background: rgba(226, 232, 240, 0.6);
+    color: #0f172a;
     border-color: rgba(15, 23, 42, 0.12);
 }
 
-[data-theme='light'] .theme-btn {
-    color: #0f172a;
-}
-
-[data-theme='light'] .theme-btn.active {
-    background: rgba(15, 23, 42, 0.08);
-    color: #111827;
+[data-theme='light'] .theme-toggle-btn:hover {
+    background: rgba(203, 213, 225, 0.8);
 }
 
 /* Game Header Updates for Multiplayer */
