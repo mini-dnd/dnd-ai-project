@@ -23,6 +23,26 @@ app.use(express.json());
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// Retry mechanism for API calls
+const retryWithBackoff = async (fn, maxRetries = 5, initialDelay = 1000) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const isLastAttempt = i === maxRetries - 1;
+      const isRetryableError = error.status === 503 || error.status === 429;
+
+      if (isLastAttempt || !isRetryableError) {
+        throw error;
+      }
+
+      const delay = initialDelay * Math.pow(2, i);
+      console.log(`Retry attempt ${i + 1}/${maxRetries} after ${delay}ms due to ${error.status} error`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+};
+
 // Store game rooms: roomId -> { roomName, players: Map, gameSession, maxPlayers }
 const gameRooms = new Map();
 
@@ -165,7 +185,7 @@ io.on('connection', (socket) => {
     room.gameSession.isStarted = true;
 
     const playerNames = Array.from(room.players.values()).map(p => p.name).join(', ');
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `Anda adalah Dungeon Master untuk game RPG berlatar ${setting}. 
     Para pemain adalah: ${playerNames}. 
     **Semua respons Anda harus dalam Bahasa Indonesia yang formal dan menarik.**
@@ -173,7 +193,12 @@ io.on('connection', (socket) => {
     Jaga agar tetap singkat (3-4 kalimat) dan akhiri dengan pertanyaan atau pilihan untuk para pemain.`;
 
     try {
-      const result = await model.generateContent(prompt);
+      // Notify players that AI is processing
+      io.to(roomId).emit('ai-processing', { message: 'Dungeon Master sedang mempersiapkan petualangan...' });
+
+      const result = await retryWithBackoff(async () => {
+        return await model.generateContent(prompt);
+      });
       const response = result.response.text();
 
       room.gameSession.history.push({
@@ -189,7 +214,10 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       console.error('Error starting game:', error);
-      socket.emit('error', { message: 'Failed to start game' });
+      const errorMessage = error.status === 503
+        ? 'Server AI sedang sibuk. Mohon coba lagi dalam beberapa saat.'
+        : 'Gagal memulai game. Silakan coba lagi.';
+      socket.emit('error', { message: errorMessage });
     }
   });
 
@@ -217,7 +245,7 @@ io.on('connection', (socket) => {
       timestamp: Date.now()
     });
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const playerNames = Array.from(room.players.values()).map(p => p.name).join(', ');
     const conversationHistory = room.gameSession.history
       .map(h => {
@@ -250,7 +278,12 @@ Address the entire party, not just one player.
 End with a question or present new choices.`;
 
     try {
-      const result = await model.generateContent(prompt);
+      // Notify players that AI is processing
+      io.to(roomId).emit('ai-processing', { message: 'Dungeon Master sedang berpikir...' });
+
+      const result = await retryWithBackoff(async () => {
+        return await model.generateContent(prompt);
+      });
       const response = result.response.text();
 
       // Simple game state updates
@@ -275,7 +308,12 @@ End with a question or present new choices.`;
       });
     } catch (error) {
       console.error('Error processing action:', error);
-      socket.emit('error', { message: 'Failed to process action' });
+      const errorMessage = error.status === 503
+        ? 'Server AI sedang sibuk. Mohon coba lagi dalam beberapa saat.'
+        : error.status === 429
+          ? 'Terlalu banyak permintaan. Mohon tunggu sebentar.'
+          : 'Gagal memproses aksi. Silakan coba lagi.';
+      socket.emit('error', { message: errorMessage });
     }
   });
 
