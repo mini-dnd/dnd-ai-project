@@ -20,10 +20,8 @@ const io = new Server(httpServer, {
 app.use(cors());
 app.use(express.json());
 
-// Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Retry mechanism for API calls
 const retryWithBackoff = async (fn, maxRetries = 5, initialDelay = 1000) => {
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -43,7 +41,6 @@ const retryWithBackoff = async (fn, maxRetries = 5, initialDelay = 1000) => {
   }
 };
 
-// Store game rooms: roomId -> { roomName, players: Map, gameSession, maxPlayers }
 const gameRooms = new Map();
 
 io.on('connection', (socket) => {
@@ -73,12 +70,21 @@ io.on('connection', (socket) => {
       gameSession: {
         setting: 'fantasy',
         history: [],
-        gameState: {
+        playerStats: new Map([[socket.id, {
+          name: playerName,
           health: 100,
-          inventory: [],
-          location: 'Starting Point'
+          isAlive: true,
+          inventory: []
+        }]]),
+        sharedState: {
+          location: 'Starting Point',
+          partyInventory: []
         },
-        isStarted: false
+        isStarted: false,
+        currentTurn: {
+          actions: new Map(),
+          waitingFor: new Set()
+        }
       }
     };
 
@@ -92,7 +98,6 @@ io.on('connection', (socket) => {
       players: Array.from(room.players.values())
     });
 
-    // Broadcast updated rooms list
     io.emit('rooms-list-updated');
   });
 
@@ -117,10 +122,19 @@ io.on('connection', (socket) => {
     }
 
     room.players.set(socket.id, { id: socket.id, name: playerName, isHost: false });
+
+    if (!room.gameSession.isStarted) {
+      room.gameSession.playerStats.set(socket.id, {
+        name: playerName,
+        health: 100,
+        isAlive: true,
+        inventory: []
+      });
+    }
+
     socket.join(roomId);
     socket.roomId = roomId;
 
-    // Notify all players in room
     io.to(roomId).emit('player-joined', {
       players: Array.from(room.players.values()),
       newPlayer: playerName
@@ -132,7 +146,6 @@ io.on('connection', (socket) => {
       players: Array.from(room.players.values())
     });
 
-    // Broadcast updated rooms list
     io.emit('rooms-list-updated');
   });
 
@@ -147,11 +160,9 @@ io.on('connection', (socket) => {
       room.players.delete(socket.id);
       socket.leave(roomId);
 
-      // If no players left, delete room
       if (room.players.size === 0) {
         gameRooms.delete(roomId);
       } else {
-        // Notify remaining players
         io.to(roomId).emit('player-left', {
           players: Array.from(room.players.values()),
           leftPlayer: player?.name
@@ -174,7 +185,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Check if user is host
     const player = room.players.get(socket.id);
     if (!player || !player.isHost) {
       socket.emit('error', { message: 'Only host can start the game' });
@@ -184,33 +194,80 @@ io.on('connection', (socket) => {
     room.gameSession.setting = setting || 'fantasy';
     room.gameSession.isStarted = true;
 
+    room.gameSession.currentTurn = {
+      actions: new Map(),
+      waitingFor: new Set(room.players.keys())
+    };
+
     const playerNames = Array.from(room.players.values()).map(p => p.name).join(', ');
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `Anda adalah Dungeon Master untuk game RPG berlatar ${setting}. 
     Para pemain adalah: ${playerNames}. 
     **Semua respons Anda harus dalam Bahasa Indonesia yang formal dan menarik.**
     Buat adegan pembuka petualangan yang menarik untuk grup ini. 
-    Jaga agar tetap singkat (3-4 kalimat) dan akhiri dengan pertanyaan atau pilihan untuk para pemain.`;
+    Jaga agar tetap singkat (3-4 kalimat) dan akhiri dengan pertanyaan atau pilihan untuk para pemain.
+    
+    Sebutkan lokasi awal dengan jelas dalam narasi Anda.
+    
+    **IMPORTANT: Your response must be in this EXACT JSON format:**
+    {
+      "narrative": "Your opening story narrative here",
+      "gameStateChanges": {
+        "healthChange": 0,
+        "locationChange": "Nama Lokasi Awal",
+        "inventoryAdd": [],
+        "inventoryRemove": []
+      }
+    }
+    
+    Set locationChange to the starting location name mentioned in your narrative.
+    Only return the JSON, nothing else.`;
 
     try {
-      // Notify players that AI is processing
       io.to(roomId).emit('ai-processing', { message: 'Dungeon Master sedang mempersiapkan petualangan...' });
 
       const result = await retryWithBackoff(async () => {
         return await model.generateContent(prompt);
       });
-      const response = result.response.text();
+      const responseText = result.response.text();
+
+      let narrative = responseText;
+      let gameStateChanges = null;
+
+      try {
+        let jsonText = responseText.trim();
+        if (jsonText.startsWith('```json')) {
+          jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
+        } else if (jsonText.startsWith('```')) {
+          jsonText = jsonText.replace(/```\s*/g, '').replace(/```\s*$/g, '');
+        }
+
+        const parsed = JSON.parse(jsonText);
+        narrative = parsed.narrative;
+        gameStateChanges = parsed.gameStateChanges;
+
+        if (gameStateChanges && gameStateChanges.locationChange) {
+          room.gameSession.gameState.location = gameStateChanges.locationChange;
+        }
+      } catch (parseError) {
+        console.warn('Failed to parse JSON response for game start, using full text:', parseError.message);
+      }
 
       room.gameSession.history.push({
         role: 'dm',
-        content: response,
+        content: narrative,
         timestamp: Date.now()
       });
 
-      // Broadcast to all players in room
+      const playerStatsArray = Array.from(room.gameSession.playerStats.entries()).map(([id, stats]) => ({
+        id,
+        ...stats
+      }));
+
       io.to(roomId).emit('game-started', {
-        message: response,
-        gameState: room.gameSession.gameState
+        message: narrative,
+        playerStats: playerStatsArray,
+        sharedState: room.gameSession.sharedState
       });
     } catch (error) {
       console.error('Error starting game:', error);
@@ -238,74 +295,243 @@ io.on('connection', (socket) => {
       return;
     }
 
-    room.gameSession.history.push({
-      role: 'player',
-      content: action,
+    const playerStats = room.gameSession.playerStats.get(socket.id);
+    if (!playerStats || !playerStats.isAlive) {
+      socket.emit('error', { message: 'Anda sudah mati dan tidak bisa melakukan aksi. Anda hanya bisa mengobservasi.' });
+      return;
+    }
+
+    if (room.gameSession.currentTurn.actions.has(socket.id)) {
+      socket.emit('error', { message: 'Anda sudah mengirim aksi untuk turn ini. Tunggu pemain lain.' });
+      return;
+    }
+
+    room.gameSession.currentTurn.actions.set(socket.id, {
+      action,
       playerName: player.name,
       timestamp: Date.now()
     });
+    room.gameSession.currentTurn.waitingFor.delete(socket.id);
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const playerNames = Array.from(room.players.values()).map(p => p.name).join(', ');
-    const conversationHistory = room.gameSession.history
-      .map(h => {
-        if (h.role === 'player') {
-          return `${h.playerName}: ${h.content}`;
-        }
-        return `DM: ${h.content}`;
+    const playersSubmitted = Array.from(room.gameSession.currentTurn.actions.keys())
+      .map(id => room.players.get(id)?.name)
+      .filter(Boolean);
+    const playersWaiting = Array.from(room.gameSession.currentTurn.waitingFor)
+      .map(id => {
+        const playerStats = room.gameSession.playerStats.get(id);
+        return playerStats?.isAlive ? room.players.get(id)?.name : null;
       })
-      .join('\n');
+      .filter(Boolean);
 
-    const prompt = `Anda adalah Dungeon Master untuk game RPG berlatar ${room.gameSession.setting}.
+    const alivePlayers = Array.from(room.gameSession.playerStats.values()).filter(s => s.isAlive).length;
+
+    io.to(roomId).emit('turn-status', {
+      submitted: playersSubmitted,
+      waiting: playersWaiting,
+      total: alivePlayers
+    });
+
+    if (room.gameSession.currentTurn.waitingFor.size > 0) {
+      return;
+    }
+
+    try {
+      io.to(roomId).emit('ai-processing', { message: 'Dungeon Master sedang berpikir...' });
+
+      const turnActions = Array.from(room.gameSession.currentTurn.actions.values())
+        .map(a => `${a.playerName}: ${a.action}`)
+        .join('\n');
+
+      room.gameSession.currentTurn.actions.forEach((actionData) => {
+        room.gameSession.history.push({
+          role: 'player',
+          content: actionData.action,
+          playerName: actionData.playerName,
+          timestamp: actionData.timestamp
+        });
+      });
+
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const conversationHistory = room.gameSession.history
+        .map(h => {
+          if (h.role === 'player') {
+            return `${h.playerName}: ${h.content}`;
+          }
+          return `DM: ${h.content}`;
+        })
+        .join('\n');
+
+      const playerStatusList = Array.from(room.gameSession.playerStats.values())
+        .map(stats => {
+          const status = stats.isAlive ? `Health: ${stats.health}` : 'DEAD';
+          const inv = stats.inventory.length > 0 ? ` | Items: ${stats.inventory.join(', ')}` : '';
+          return `  - ${stats.name}: ${status}${inv}`;
+        })
+        .join('\n');
+
+      const prompt = `Anda adalah Dungeon Master untuk game RPG berlatar ${room.gameSession.setting}.
     
-    **TUGAS PENTING: Semua respons Anda, termasuk narasi dan pertanyaan, harus dalam Bahasa Indonesia yang kreatif dan mengalir.**
+**TUGAS PENTING: Semua respons Anda, termasuk narasi dan pertanyaan, harus dalam Bahasa Indonesia yang kreatif dan mengalir.**
     
 Current game state:
-- Players: ${playerNames}
-- Health: ${room.gameSession.gameState.health}
-- Location: ${room.gameSession.gameState.location}
-- Inventory: ${room.gameSession.gameState.inventory.join(', ') || 'empty'}
+Players:
+${playerStatusList}
+
+Party Location: ${room.gameSession.sharedState.location}
+Party Inventory: ${room.gameSession.sharedState.partyInventory.join(', ') || 'empty'}
 
 Conversation history:
 ${conversationHistory}
 
-Player ${player.name} action: ${action}
+All players' actions this turn:
+${turnActions}
 
 Respond as the Dungeon Master. Be creative, engaging, and continue the story. 
-Keep responses brief (3-5 sentences). 
-If the action affects health, inventory, or location, mention it clearly in Indonesian.
-Address the entire party, not just one player.
-End with a question or present new choices.`;
+Keep responses brief (4-6 sentences). 
+Consider ALL players' actions and respond to them collectively.
+Address the entire party.
+End with a question or present new choices.
 
-    try {
-      // Notify players that AI is processing
-      io.to(roomId).emit('ai-processing', { message: 'Dungeon Master sedang berpikir...' });
+**IMPORTANT: Your response must be in this EXACT JSON format:**
+{
+  "narrative": "Your story narrative here",
+  "gameStateChanges": {
+    "healthChange": 0,
+    "locationChange": null,
+    "inventoryAdd": [],
+    "inventoryRemove": []
+  }
+}
+
+Rules for gameStateChanges:
+- healthChange: positive number for healing, negative for damage, 0 for no change
+- locationChange: new location name if players moved, null if no change
+- inventoryAdd: array of item names that players gained
+- inventoryRemove: array of item names that players used/lost
+
+Only return the JSON, nothing else.`;
 
       const result = await retryWithBackoff(async () => {
         return await model.generateContent(prompt);
       });
-      const response = result.response.text();
+      const responseText = result.response.text();
 
-      // Simple game state updates
-      if (response.toLowerCase().includes('damage') || response.toLowerCase().includes('hurt')) {
-        room.gameSession.gameState.health = Math.max(0, room.gameSession.gameState.health - 10);
-      }
-      if (response.toLowerCase().includes('heal')) {
-        room.gameSession.gameState.health = Math.min(100, room.gameSession.gameState.health + 20);
+      let narrative = responseText;
+      let gameStateChanges = null;
+
+      try {
+        let jsonText = responseText.trim();
+        if (jsonText.startsWith('```json')) {
+          jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
+        } else if (jsonText.startsWith('```')) {
+          jsonText = jsonText.replace(/```\s*/g, '').replace(/```\s*$/g, '');
+        }
+
+        const parsed = JSON.parse(jsonText);
+        narrative = parsed.narrative;
+        gameStateChanges = parsed.gameStateChanges;
+
+        if (gameStateChanges) {
+          if (gameStateChanges.playerChanges && Array.isArray(gameStateChanges.playerChanges)) {
+            gameStateChanges.playerChanges.forEach(change => {
+              const playerEntry = Array.from(room.gameSession.playerStats.entries())
+                .find(([_, stats]) => stats.name === change.playerName);
+
+              if (playerEntry) {
+                const [playerId, playerStats] = playerEntry;
+
+                if (change.healthChange) {
+                  playerStats.health = Math.max(0, Math.min(100, playerStats.health + change.healthChange));
+
+                  if (playerStats.health <= 0) {
+                    playerStats.isAlive = false;
+                    playerStats.health = 0;
+                  }
+                }
+
+                if (change.inventoryAdd && change.inventoryAdd.length > 0) {
+                  playerStats.inventory.push(...change.inventoryAdd);
+                }
+
+                if (change.inventoryRemove && change.inventoryRemove.length > 0) {
+                  change.inventoryRemove.forEach(item => {
+                    const index = playerStats.inventory.indexOf(item);
+                    if (index > -1) {
+                      playerStats.inventory.splice(index, 1);
+                    }
+                  });
+                }
+              }
+            });
+          }
+
+          if (gameStateChanges.locationChange) {
+            room.gameSession.sharedState.location = gameStateChanges.locationChange;
+          }
+
+          if (gameStateChanges.partyInventoryAdd && gameStateChanges.partyInventoryAdd.length > 0) {
+            room.gameSession.sharedState.partyInventory.push(...gameStateChanges.partyInventoryAdd);
+          }
+
+          if (gameStateChanges.partyInventoryRemove && gameStateChanges.partyInventoryRemove.length > 0) {
+            gameStateChanges.partyInventoryRemove.forEach(item => {
+              const index = room.gameSession.sharedState.partyInventory.indexOf(item);
+              if (index > -1) {
+                room.gameSession.sharedState.partyInventory.splice(index, 1);
+              }
+            });
+          }
+        }
+      } catch (parseError) {
+        console.warn('Failed to parse JSON response, using full text as narrative:', parseError.message);
+        const lowerResponse = responseText.toLowerCase();
+        if (lowerResponse.includes('damage') || lowerResponse.includes('hurt') || lowerResponse.includes('cedera') || lowerResponse.includes('luka') || lowerResponse.includes('mati')) {
+          room.gameSession.playerStats.forEach((stats, playerId) => {
+            if (stats.isAlive) {
+              stats.health = Math.max(0, stats.health - 10);
+              if (stats.health <= 0) {
+                stats.isAlive = false;
+              }
+            }
+          });
+        }
+        if (lowerResponse.includes('heal') || lowerResponse.includes('sembuh') || lowerResponse.includes('pulih')) {
+          room.gameSession.playerStats.forEach((stats, playerId) => {
+            if (stats.isAlive) {
+              stats.health = Math.min(100, stats.health + 20);
+            }
+          });
+        }
       }
 
       room.gameSession.history.push({
         role: 'dm',
-        content: response,
+        content: narrative,
         timestamp: Date.now()
       });
 
-      // Broadcast to all players in room
+      const alivePlayers = Array.from(room.gameSession.playerStats.entries())
+        .filter(([_, stats]) => stats.isAlive)
+        .map(([id, _]) => id);
+
+      room.gameSession.currentTurn = {
+        actions: new Map(),
+        waitingFor: new Set(alivePlayers)
+      };
+
+      const playerStatsArray = Array.from(room.gameSession.playerStats.entries()).map(([id, stats]) => ({
+        id,
+        ...stats
+      }));
+
       io.to(roomId).emit('dm-response', {
-        message: response,
-        gameState: room.gameSession.gameState,
-        playerName: player.name
+        message: narrative,
+        playerStats: playerStatsArray,
+        sharedState: room.gameSession.sharedState,
+        stateChanges: gameStateChanges
       });
+
+      io.to(roomId).emit('new-turn');
     } catch (error) {
       console.error('Error processing action:', error);
       const errorMessage = error.status === 503
@@ -313,7 +539,17 @@ End with a question or present new choices.`;
         : error.status === 429
           ? 'Terlalu banyak permintaan. Mohon tunggu sebentar.'
           : 'Gagal memproses aksi. Silakan coba lagi.';
-      socket.emit('error', { message: errorMessage });
+
+      io.to(roomId).emit('error', { message: errorMessage });
+
+      const alivePlayers = Array.from(room.gameSession.playerStats.entries())
+        .filter(([_, stats]) => stats.isAlive)
+        .map(([id, _]) => id);
+
+      room.gameSession.currentTurn = {
+        actions: new Map(),
+        waitingFor: new Set(alivePlayers)
+      }; io.to(roomId).emit('turn-reset');
     }
   });
 
@@ -325,11 +561,9 @@ End with a question or present new choices.`;
         const player = room.players.get(socket.id);
         room.players.delete(socket.id);
 
-        // If no players left, delete room
         if (room.players.size === 0) {
           gameRooms.delete(roomId);
         } else {
-          // Notify remaining players
           io.to(roomId).emit('player-left', {
             players: Array.from(room.players.values()),
             leftPlayer: player?.name

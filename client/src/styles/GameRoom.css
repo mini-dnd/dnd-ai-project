@@ -667,3 +667,112 @@
   background: rgba(220, 38, 38, 0.3);
   border-color: rgba(220, 38, 38, 0.6);
 }
+
+/* In-game error positioning */
+.error-alert.in-game {
+  margin: 0 0 1rem 0;
+}
+
+/* Turn Status Styles */
+.turn-status {
+  margin-bottom: 1rem;
+  animation: slideDown 0.4s ease-out;
+}
+
+.turn-status-content {
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.15),
+    rgba(79, 70, 229, 0.15)
+  );
+  border: 2px solid rgba(99, 102, 241, 0.4);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.turn-status-icon {
+  font-size: 1.5rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.turn-status-info {
+  flex: 1;
+}
+
+.turn-status-text {
+  color: #c7d5e0;
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0 0 0.25rem 0;
+}
+
+.turn-status-text strong {
+  color: #a5b4fc;
+  font-size: 1.1rem;
+}
+
+.turn-status-waiting {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  margin: 0.25rem 0 0 0;
+  font-style: italic;
+}
+
+.turn-status-you {
+  color: #86efac;
+  font-size: 0.875rem;
+  margin: 0.25rem 0 0 0;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.turn-status-you .checkmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: rgba(134, 239, 172, 0.2);
+  border: 1px solid rgba(134, 239, 172, 0.4);
+  border-radius: 50%;
+  font-size: 0.75rem;
+}
+
+/* Light theme for turn status */
+[data-theme="light"] .turn-status-content {
+  background: linear-gradient(
+    135deg,
+    rgba(199, 210, 254, 0.9),
+    rgba(165, 180, 252, 0.9)
+  );
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+[data-theme="light"] .turn-status-text {
+  color: #1e293b;
+}
+
+[data-theme="light"] .turn-status-text strong {
+  color: #4f46e5;
+}
+
+[data-theme="light"] .turn-status-waiting {
+  color: #64748b;
+}
+
+[data-theme="light"] .turn-status-you {
+  color: #059669;
+}
+
+[data-theme="light"] .turn-status-you .checkmark {
+  background: rgba(5, 150, 105, 0.15);
+  border-color: rgba(5, 150, 105, 0.4);
+}

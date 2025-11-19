@@ -25,6 +25,8 @@ const GameRoom = () => {
     isHost,
     error,
     clearError,
+    turnStatus,
+    hasSubmittedThisTurn,
     startGame,
     leaveRoom,
   } = useGame();
@@ -231,9 +233,50 @@ const GameRoom = () => {
 
         {gameStarted && (
           <div className="game-content">
+            {error && (
+              <div className="error-alert in-game">
+                <div className="error-content">
+                  <span className="error-icon">⚠️</span>
+                  <p className="error-message">{error}</p>
+                  <button className="error-close" onClick={clearError}>
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {turnStatus.total > 0 && (
+              <div className="turn-status">
+                <div className="turn-status-content">
+                  <span className="turn-status-icon">🎯</span>
+                  <div className="turn-status-info">
+                    <p className="turn-status-text">
+                      <strong>{turnStatus.submitted.length}</strong> /{" "}
+                      <strong>{turnStatus.total}</strong> players submitted
+                    </p>
+                    {turnStatus.waiting.length > 0 && (
+                      <p className="turn-status-waiting">
+                        Waiting for: {turnStatus.waiting.join(", ")}
+                      </p>
+                    )}
+                    {hasSubmittedThisTurn && (
+                      <p className="turn-status-you">
+                        <span className="checkmark">✓</span> You've submitted
+                        your action
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="messages-container">
               {messages.map((msg, idx) => (
-                <ChatMessage key={idx} message={msg} />
+                <ChatMessage
+                  key={idx}
+                  message={msg}
+                  currentPlayerName={playerName}
+                />
               ))}
 
               {isLoading && (

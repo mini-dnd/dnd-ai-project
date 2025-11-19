@@ -17,14 +17,25 @@ export const GameProvider = ({ children }) => {
   const [playerName, setPlayerName] = useState("");
   const [setting, setSetting] = useState("fantasy");
   const [messages, setMessages] = useState([]);
-  const [gameState, setGameState] = useState({
-    health: 100,
-    inventory: [],
+  const [playerStats, setPlayerStats] = useState([]);
+  const [sharedState, setSharedState] = useState({
     location: "Unknown",
+    partyInventory: [],
+  });
+  const [myPlayerStats, setMyPlayerStats] = useState({
+    health: 100,
+    isAlive: true,
+    inventory: [],
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState(null);
+  const [turnStatus, setTurnStatus] = useState({
+    submitted: [],
+    waiting: [],
+    total: 0,
+  });
+  const [hasSubmittedThisTurn, setHasSubmittedThisTurn] = useState(false);
 
   // Multiplayer states
   const [rooms, setRooms] = useState([]);
@@ -106,7 +117,23 @@ export const GameProvider = ({ children }) => {
           timestamp: Date.now(),
         },
       ]);
-      setGameState(data.gameState);
+      setPlayerStats(data.playerStats || []);
+      setSharedState(
+        data.sharedState || { location: "Unknown", partyInventory: [] }
+      );
+
+      // Find my player stats
+      const myStats = (data.playerStats || []).find(
+        (p) => p.name === playerName
+      );
+      if (myStats) {
+        setMyPlayerStats({
+          health: myStats.health,
+          isAlive: myStats.isAlive,
+          inventory: myStats.inventory,
+        });
+      }
+
       setGameStarted(true);
       setIsLoading(false);
     });
@@ -120,8 +147,126 @@ export const GameProvider = ({ children }) => {
           timestamp: Date.now(),
         },
       ]);
-      setGameState(data.gameState);
+
+      // Update player stats
+      const newPlayerStats = data.playerStats || [];
+      setPlayerStats(newPlayerStats);
+      setSharedState(data.sharedState || sharedState);
+
+      // Find my player stats
+      const myStats = newPlayerStats.find((p) => p.name === playerName);
+      if (myStats) {
+        setMyPlayerStats({
+          health: myStats.health,
+          isAlive: myStats.isAlive,
+          inventory: myStats.inventory,
+        });
+      }
+
+      // Add state change notifications if any
+      if (data.stateChanges) {
+        const notifications = [];
+
+        // Check for player deaths or health changes
+        if (
+          data.stateChanges.playerChanges &&
+          Array.isArray(data.stateChanges.playerChanges)
+        ) {
+          data.stateChanges.playerChanges.forEach((change) => {
+            if (change.healthChange !== 0) {
+              const sign = change.healthChange > 0 ? "+" : "";
+
+              // Check if this player died
+              const updatedPlayer = newPlayerStats.find(
+                (p) => p.name === change.playerName
+              );
+              if (updatedPlayer && !updatedPlayer.isAlive) {
+                notifications.push(`💀 ${change.playerName} telah mati!`);
+              } else {
+                notifications.push(
+                  `${change.playerName}: Health ${sign}${change.healthChange}`
+                );
+              }
+            }
+
+            if (change.inventoryAdd && change.inventoryAdd.length > 0) {
+              notifications.push(
+                `${change.playerName} ➕: ${change.inventoryAdd.join(", ")}`
+              );
+            }
+
+            if (change.inventoryRemove && change.inventoryRemove.length > 0) {
+              notifications.push(
+                `${change.playerName} ➖: ${change.inventoryRemove.join(", ")}`
+              );
+            }
+          });
+        }
+
+        if (data.stateChanges.locationChange) {
+          notifications.push(
+            `📍 Moved to: ${data.stateChanges.locationChange}`
+          );
+        }
+
+        if (
+          data.stateChanges.partyInventoryAdd &&
+          data.stateChanges.partyInventoryAdd.length > 0
+        ) {
+          notifications.push(
+            `🎒 Party gained: ${data.stateChanges.partyInventoryAdd.join(", ")}`
+          );
+        }
+
+        if (
+          data.stateChanges.partyInventoryRemove &&
+          data.stateChanges.partyInventoryRemove.length > 0
+        ) {
+          notifications.push(
+            `🎒 Party used: ${data.stateChanges.partyInventoryRemove.join(
+              ", "
+            )}`
+          );
+        }
+
+        // Add notification messages
+        if (notifications.length > 0) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              type: "system",
+              content: notifications.join(" | "),
+              timestamp: Date.now(),
+            },
+          ]);
+        }
+      }
+
       setIsLoading(false);
+      setHasSubmittedThisTurn(false);
+    });
+
+    socketService.on("turn-status", (data) => {
+      setTurnStatus(data);
+    });
+
+    socketService.on("new-turn", () => {
+      setHasSubmittedThisTurn(false);
+      setTurnStatus({
+        submitted: [],
+        waiting: [],
+        total: 0,
+      });
+    });
+
+    socketService.on("turn-reset", () => {
+      setHasSubmittedThisTurn(false);
+      setIsLoading(false);
+      setTurnStatus({
+        submitted: [],
+        waiting: [],
+        total: 0,
+      });
     });
 
     socketService.on("error", (data) => {
@@ -182,15 +327,26 @@ export const GameProvider = ({ children }) => {
     setIsHost(false);
     setGameStarted(false);
     setMessages([]);
-    setGameState({
-      health: 100,
-      inventory: [],
+    setPlayerStats([]);
+    setSharedState({
       location: "Unknown",
+      partyInventory: [],
+    });
+    setMyPlayerStats({
+      health: 100,
+      isAlive: true,
+      inventory: [],
     });
   };
 
   const sendAction = (action) => {
-    if (!action.trim() || isLoading) return;
+    if (!action.trim() || isLoading || hasSubmittedThisTurn) return;
+
+    // Check if player is alive
+    if (!myPlayerStats.isAlive) {
+      setError("Anda sudah mati dan tidak bisa melakukan aksi.");
+      return;
+    }
 
     setMessages((prev) => [
       ...prev,
@@ -198,9 +354,10 @@ export const GameProvider = ({ children }) => {
         type: "player",
         content: action,
         timestamp: Date.now(),
+        playerName: playerName,
       },
     ]);
-    setIsLoading(true);
+    setHasSubmittedThisTurn(true);
     socketService.emit("player-action", { action });
   };
 
@@ -209,10 +366,15 @@ export const GameProvider = ({ children }) => {
     setPlayerName("");
     setSetting("fantasy");
     setMessages([]);
-    setGameState({
-      health: 100,
-      inventory: [],
+    setPlayerStats([]);
+    setSharedState({
       location: "Unknown",
+      partyInventory: [],
+    });
+    setMyPlayerStats({
+      health: 100,
+      isAlive: true,
+      inventory: [],
     });
     setIsLoading(false);
   };
@@ -227,11 +389,15 @@ export const GameProvider = ({ children }) => {
     setPlayerName,
     setting,
     messages,
-    gameState,
+    playerStats,
+    sharedState,
+    myPlayerStats,
     isLoading,
     isConnected,
     error,
     clearError,
+    turnStatus,
+    hasSubmittedThisTurn,
     rooms,
     currentRoom,
     players,
