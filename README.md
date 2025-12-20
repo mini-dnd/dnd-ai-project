@@ -1,4 +1,4 @@
-# Dungeon Master AI Project 🎲✨
+# Dungeon Master AI 🎲✨
 
 An interactive Dungeon Master adventure application powered by Artificial Intelligence. This project enables users to engage in dynamic storytelling with an AI Game Master and supports real-time multiplayer interactions.
 
@@ -23,9 +23,8 @@ An interactive Dungeon Master adventure application powered by Artificial Intell
 * **Runtime**: Node.js
 * **Framework**: Express 5.1.0
 * **AI Engine**: Google Generative AI (Gemini)
-* **Database**: PostgreSQL with Sequelize ORM
 * **Real-time Server**: Socket.io 4.8.1
-* **Security**: JWT, bcryptjs, CORS
+* **Security**: CORS
 
 ## 📂 Project Structure
 
