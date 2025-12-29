@@ -247,7 +247,7 @@ io.on('connection', (socket) => {
         gameStateChanges = parsed.gameStateChanges;
 
         if (gameStateChanges && gameStateChanges.locationChange) {
-          room.gameSession.gameState.location = gameStateChanges.locationChange;
+          room.gameSession.sharedState.location = gameStateChanges.locationChange;
         }
       } catch (parseError) {
         console.warn('Failed to parse JSON response for game start, using full text:', parseError.message);

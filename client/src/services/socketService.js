@@ -7,12 +7,17 @@ class SocketService {
 
   connect() {
     if (!this.socket) {
-      this.socket = io('https://api-dungeon.amd-ryankz.web.id', {
+      // Use environment variable for API URL, fallback to localhost
+      const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      
+      this.socket = io(serverUrl, {
         autoConnect: true,
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5
       });
+      
+      console.log('Connecting to server:', serverUrl);
     }
     return this.socket;
   }
