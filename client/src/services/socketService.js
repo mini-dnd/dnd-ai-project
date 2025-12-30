@@ -8,7 +8,7 @@ class SocketService {
   connect() {
     if (!this.socket) {
       // Use environment variable for API URL, fallback to localhost
-      const serverUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const serverUrl = 'http://localhost:3000';
       
       this.socket = io(serverUrl, {
         autoConnect: true,
